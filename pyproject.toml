@@ -1,0 +1,26 @@
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+include = "\.(py|pyi)$"
+
+[tool.ruff]
+line-length = 100
+select = [
+    "E", "F", "W",  # pycodestyle/pyflakes
+    "I",              # isort
+    "B",              # flake8-bugbear
+    "UP",             # pyupgrade
+]
+ignore = [
+    "E203",  # compatible with black
+]
+
+[tool.ruff.isort]
+known-first-party = ["app"]
+combine-as-imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-q"
+asyncio_mode = "auto"
+DJANGO_SETTINGS_MODULE = "app.settings"

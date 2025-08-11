@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+
+rule_files:
+  - "alert_rules.yml"
+
+scrape_configs:
+  # WebSocket Application Metrics
+  - job_name: 'websocket-app'
+    static_configs:
+      - targets: ['traefik:80']
+    metrics_path: /metrics
+    scrape_interval: 10s

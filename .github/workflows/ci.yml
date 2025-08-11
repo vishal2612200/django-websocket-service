@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  build-test-monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build Docker image
+        run: docker build -f docker/Dockerfile -t django-ws:ci .
+
+      - name: Point Traefik active to blue
+        run: cp docker/traefik/dynamic/blue.yml docker/traefik/dynamic/active.yml
+
+      - name: Start stack (blue)
+        run: docker compose -f docker/compose.yml up -d traefik app_blue redis_blue
+
+      - name: Wait for readiness
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost/readyz >/dev/null; then echo ready; exit 0; fi; sleep 1; done; exit 1
+
+      - name: Run pytest smoke
+        env:
+          TEST_HOST: localhost
+        run: pytest -q
+
+      - name: Run monitor script (20s)
+        run: bash scripts/monitor.sh || true
+
+      - name: Collect logs
+        run: docker compose -f docker/compose.yml logs --no-color > docker-logs.txt || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-and-metrics
+          path: |
+            docker-logs.txt

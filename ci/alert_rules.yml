@@ -1,0 +1,11 @@
+groups:
+  - name: websocket-alerts
+    rules:
+      - alert: NoActiveConnections
+        expr: app_active_connections == 0
+        for: 60s
+        labels:
+          severity: warning
+        annotations:
+          summary: "No active websocket connections for 60s"
+          description: "The application reports zero active connections."

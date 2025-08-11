@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+.env
+.venv/
+venv/
+.build/
+node_modules/
+ui/node_modules/
+ui/dist/
+static/
+.idea/
+.vscode/
+.DS_Store

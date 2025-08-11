@@ -1,0 +1,128 @@
+# =============================================================================
+# WORKER CONFIGURATION EXPLANATION
+# =============================================================================
+# 
+# ASGI Workers (UVICORN_WORKERS=6):
+# - We run 6 ASGI workers per container for the following reasons:
+#   1. High Throughput: WebSocket connections are I/O-bound, allowing more workers
+#      to handle 5,000+ concurrent connections efficiently.
+#   2. Fault Tolerance: Multiple workers provide redundancy if one crashes.
+#   3. Load Distribution: Connections distributed across processes for better performance.
+#   4. Resource Utilization: 6 workers optimize CPU and memory usage for high concurrency.
+#
+# Thread Pool Workers (uvicorn[standard]):
+# - uvicorn[standard] includes a thread pool for handling blocking operations
+# - Default thread pool size: min(32, (os.cpu_count() or 1) + 4)
+# - On typical containers (2-4 cores): ~6-8 threads per worker
+# - Total threads: 8 workers × 6-8 threads = 48-64 concurrent threads
+# - Thread pool handles: database queries, file I/O, external API calls
+#
+# Why This Configuration Works:
+# - WebSocket connections are async and don't block threads
+# - Redis operations are async via channels-redis
+# - Thread pool handles any blocking operations (metrics, health checks)
+# - 8 workers provide high concurrency for 6,000+ connections
+# - Suitable for containers with 3-4 CPU cores and 2-3GB RAM
+#
+# Scaling Considerations:
+# - For very high load: Increase UVICORN_WORKERS to 10-12
+# - For CPU-intensive tasks: Add more CPU cores to container
+# - For memory-intensive: Increase container memory limit
+# - For very high concurrency: Consider horizontal scaling (more containers)
+# =============================================================================
+
+services:
+  traefik:
+    image: traefik:v3.0
+    command: ["--log.level=INFO"]
+    ports:
+      - "80:80"
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic/:/etc/traefik/dynamic/:ro
+
+  # Shared Redis for message persistence across environments
+  redis_shared:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --save 60 1000 --maxclients 12000 --tcp-keepalive 300
+    volumes:
+      - redis_shared_data:/data
+
+  redis_blue:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --save 60 1000 --maxclients 12000 --tcp-keepalive 300
+
+  app_blue:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - COLOR=blue
+      - CHANNEL_REDIS_URL=redis://redis_blue:6379/0
+      - MESSAGE_REDIS_URL=redis://redis_shared:6379/1
+      - DJANGO_SETTINGS_MODULE=app.settings
+      # ASGI Workers: 8 workers for 6K+ concurrent connections
+      # Each worker has ~6-8 thread pool workers for blocking operations
+      - UVICORN_WORKERS=8
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '3.0'
+        reservations:
+          memory: 1.5G
+          cpus: '1.5'
+    depends_on:
+      - redis_blue
+      - redis_shared
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/readyz" ]
+      interval: 0.5s  # Faster health checks for quicker startup detection
+      timeout: 0.5s   # Reduced timeout
+      retries: 3      # Fewer retries for faster failure detection
+      start_period: 1s # Reduced start period
+    # Graceful shutdown configuration
+    stop_grace_period: 4s  # Reduced from 8s for faster shutdown
+    stop_signal: SIGTERM   # Use SIGTERM for graceful shutdown
+
+  redis_green:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --save 60 1000 --maxclients 12000 --tcp-keepalive 300
+
+  app_green:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - COLOR=green
+      - CHANNEL_REDIS_URL=redis://redis_green:6379/0
+      - MESSAGE_REDIS_URL=redis://redis_shared:6379/1
+      - DJANGO_SETTINGS_MODULE=app.settings
+      # ASGI Workers: 8 workers for 6K+ concurrent connections
+      # Each worker has ~6-8 thread pool workers for blocking operations
+      - UVICORN_WORKERS=8
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '3.0'
+        reservations:
+          memory: 1.5G
+          cpus: '1.5'
+    depends_on:
+      - redis_green
+      - redis_shared
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/readyz" ]
+      interval: 0.5s  # Faster health checks for quicker startup detection
+      timeout: 0.5s   # Reduced timeout
+      retries: 3      # Fewer retries for faster failure detection
+      start_period: 1s # Reduced start period
+    # Graceful shutdown configuration
+    stop_grace_period: 6s  # Reduced from 8s for faster shutdown
+    stop_signal: SIGTERM   # Use SIGTERM for graceful shutdown
+
+volumes:
+  redis_shared_data:
+
+# No networks specified; use default network

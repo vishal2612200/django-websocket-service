@@ -1,0 +1,1 @@
+This placeholder ensures STATIC_ROOT exists when not building UI.

@@ -1,0 +1,124 @@
+groups:
+  - name: websocket_alerts
+    rules:
+      # Critical Alerts
+      - alert: NoActiveConnections
+        expr: app_active_connections == 0
+        for: 60s
+        labels:
+          severity: critical
+          team: websocket
+        annotations:
+          summary: "No active WebSocket connections"
+          description: "Service may be down or experiencing issues. No active connections for 60 seconds."
+          runbook_url: "https://wiki.company.com/runbooks/websocket-connection-loss"
+
+      - alert: HighErrorRate
+        expr: rate(app_errors_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          team: websocket
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per minute"
+          runbook_url: "https://wiki.company.com/runbooks/high-error-rate"
+
+      - alert: ServiceDown
+        expr: up{job="websocket-app"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          team: websocket
+        annotations:
+          summary: "WebSocket service is down"
+          description: "The WebSocket application is not responding to health checks"
+          runbook_url: "https://wiki.company.com/runbooks/service-down"
+
+      # Warning Alerts
+      - alert: HighMemoryUsage
+        expr: (process_resident_memory_bytes / process_virtual_memory_bytes) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: websocket
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}%"
+          runbook_url: "https://wiki.company.com/runbooks/high-memory-usage"
+
+      - alert: SlowShutdownTime
+        expr: histogram_quantile(0.95, rate(app_shutdown_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: websocket
+        annotations:
+          summary: "Slow shutdown time"
+          description: "95th percentile shutdown time is {{ $value }}s"
+          runbook_url: "https://wiki.company.com/runbooks/slow-shutdown-time"
+
+      - alert: LowMessageThroughput
+        expr: rate(app_messages_total[5m]) < 1
+        for: 10m
+        labels:
+          severity: warning
+          team: websocket
+        annotations:
+          summary: "Low message throughput"
+          description: "Message throughput is {{ $value }} messages per second"
+          runbook_url: "https://wiki.company.com/runbooks/low-throughput"
+
+      - alert: HighConnectionChurn
+        expr: rate(app_connections_opened_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: websocket
+        annotations:
+          summary: "High connection churn"
+          description: "Connection rate is {{ $value }} connections per second"
+          runbook_url: "https://wiki.company.com/runbooks/high-connection-churn"
+
+      # Info Alerts
+      - alert: DeploymentCompleted
+        expr: changes(app_active_connections[5m]) > 0
+        labels:
+          severity: info
+          team: websocket
+        annotations:
+          summary: "Service deployment detected"
+          description: "Service activity detected, possible deployment or restart"
+
+      - alert: HighSessionCount
+        expr: app_sessions_tracked > 1000
+        for: 5m
+        labels:
+          severity: info
+          team: websocket
+        annotations:
+          summary: "High session count"
+          description: "{{ $value }} sessions are currently tracked"
+
+  - name: system_alerts
+    rules:
+      # System-level alerts
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}%"
+
+      - alert: HighDiskUsage
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is {{ $value }}%"

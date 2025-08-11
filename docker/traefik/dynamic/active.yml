@@ -1,0 +1,11 @@
+http:
+  services:
+    django-blue:
+      loadBalancer:
+        servers:
+          - url: "http://app_blue:8000"
+  routers:
+    web-blue:
+      entryPoints: ["web"]
+      rule: "PathPrefix(`/`)"
+      service: django-blue

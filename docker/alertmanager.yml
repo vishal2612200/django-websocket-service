@@ -1,0 +1,55 @@
+global:
+  resolve_timeout: 5m
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'  # Replace with your Slack webhook
+
+route:
+  group_by: ['alertname', 'severity', 'team']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'websocket-team'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'websocket-oncall'
+      continue: true
+    - match:
+        severity: warning
+      receiver: 'websocket-team'
+      continue: true
+    - match:
+        team: infrastructure
+      receiver: 'infrastructure-team'
+      continue: true
+
+receivers:
+  - name: 'websocket-team'
+    slack_configs:
+      - channel: '#websocket-alerts'
+        title: '{{ template "slack.title" . }}'
+        text: '{{ template "slack.text" . }}'
+        send_resolved: true
+        icon_emoji: ':warning:'
+  
+  - name: 'websocket-oncall'
+    slack_configs:
+      - channel: '#websocket-oncall'
+        title: '🚨 CRITICAL: {{ template "slack.title" . }}'
+        text: '{{ template "slack.text" . }}'
+        send_resolved: true
+        icon_emoji: ':rotating_light:'
+    pagerduty_configs:
+      - routing_key: 'your-pagerduty-key'  # Replace with your PagerDuty key
+        description: '{{ template "pagerduty.description" . }}'
+        severity: '{{ if eq .GroupLabels.severity "critical" }}critical{{ else }}warning{{ end }}'
+  
+  - name: 'infrastructure-team'
+    slack_configs:
+      - channel: '#infrastructure-alerts'
+        title: '{{ template "slack.title" . }}'
+        text: '{{ template "slack.text" . }}'
+        send_resolved: true
+        icon_emoji: ':gear:'
+
+templates:
+  - '/etc/alertmanager/template/*.tmpl'
