@@ -8,6 +8,11 @@
 
 A production-ready, WebSocket communication platform built with Django Channels, featuring zero-downtime deployments, comprehensive observability, and a modern React frontend. Designed for high-availability real-time applications with enterprise-level reliability, scalability, and operational excellence.
 
+## 🎥 Loom Demo — Click Below to Watch
+
+[![▶ Watch Full Video Walkthrough](https://cdn.loom.com/sessions/thumbnails/464529825aa3429c9a54add84b1ae7c9-565ec8b15f6854a5-full.jpg)](https://www.loom.com/share/464529825aa3429c9a54add84b1ae7c9?sid=931cb8d9-d5cb-4078-bb35-b3bd9508bdcd)
+
+
 ## ⚡ Quick Reference
 
 ```bash
